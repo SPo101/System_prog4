@@ -6,14 +6,18 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#include <time.h>
 
 #define PORT "8080"
 #define BACKLOG 5
 #define BUFFSIZE 1024
+#define MAX_GUESS_NUM 1000
 
-int main(){
-
-	
+int main(int argc, char *argv[]){
+	if(argc < 2){
+		printf("Usage: ./argv[0] <port>\n");
+		exit(EXIT_FAILURE);
+	}
 	
 	int status, sd, new_sd, pid, bytes_received;
 	struct addrinfo hints, *res, *p;
@@ -21,6 +25,7 @@ int main(){
 	socklen_t addr_size;
 	char dest[INET_ADDRSTRLEN];
 	char buffer[BUFFSIZE];
+	char guessnum[BUFFSIZE];
 
 	memset(&hints, 0, sizeof hints);
 	hints.ai_family = AF_INET;
@@ -63,14 +68,25 @@ int main(){
 		pid = fork();
 		if(!pid){
 			close(sd);
+			srand(time(NULL));
+			memset(guessnum, 0, BUFFSIZE);
+			sprintf(guessnum, "%d", rand()%MAX_GUESS_NUM);
+
 			while(1){
 				memset(buffer, 0, BUFFSIZE);
 				bytes_received = recv(new_sd, buffer, BUFFSIZE, 0);	
 				if(bytes_received)
-					printf("\t[client %6d] - %s", getpid(), buffer);
-				if(!strcmp(buffer, "Quit\n"))
+					printf("\t[client %s] - guess_%s\tright_%s\n", dest, buffer, guessnum);
+
+				if(!strcmp(buffer, guessnum)){
+					write(new_sd, guessnum, BUFFSIZE);
 					break;
+				}
+
+				sprintf(buffer, "%s", "-1");
+				write(new_sd, buffer, BUFFSIZE);
 			}
+			printf("Connection %s closed\n", dest);
 			close(new_sd);
 			exit(EXIT_SUCCESS);
 		}
